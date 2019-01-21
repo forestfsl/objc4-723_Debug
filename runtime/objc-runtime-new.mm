@@ -6150,6 +6150,7 @@ _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
 {
     if (!cls) return nil;
 
+    printf("%p\n",cls);
     assert(cls->isRealized());
 
     // Read class's info bits all at once for performance

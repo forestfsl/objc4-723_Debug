@@ -100,6 +100,8 @@
 		83F4B52815E843B100E0926F /* NSObjCRuntime.h in Headers */ = {isa = PBXBuildFile; fileRef = 83F4B52615E843B100E0926F /* NSObjCRuntime.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		83F4B52915E843B100E0926F /* NSObject.h in Headers */ = {isa = PBXBuildFile; fileRef = 83F4B52715E843B100E0926F /* NSObject.h */; settings = {ATTRIBUTES = (Public, ); }; };
 		83F550E0155E030800E95D3B /* objc-cache-old.mm in Sources */ = {isa = PBXBuildFile; fileRef = 83F550DF155E030800E95D3B /* objc-cache-old.mm */; };
+		846B078221D464930098437A /* Father.m in Sources */ = {isa = PBXBuildFile; fileRef = 846B078121D464930098437A /* Father.m */; };
+		846B078521D464A30098437A /* Son.m in Sources */ = {isa = PBXBuildFile; fileRef = 846B078421D464A30098437A /* Son.m */; };
 		87BB4EA70EC39854005D08E1 /* objc-probes.d in Sources */ = {isa = PBXBuildFile; fileRef = 87BB4E900EC39633005D08E1 /* objc-probes.d */; };
 		9672F7EE14D5F488007CEC96 /* NSObject.mm in Sources */ = {isa = PBXBuildFile; fileRef = 9672F7ED14D5F488007CEC96 /* NSObject.mm */; };
 		E8923DA1116AB2820071B552 /* a1a2-blocktramps-i386.s in Sources */ = {isa = PBXBuildFile; fileRef = E8923D9C116AB2820071B552 /* a1a2-blocktramps-i386.s */; };
@@ -225,6 +227,10 @@
 		83F4B52615E843B100E0926F /* NSObjCRuntime.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = NSObjCRuntime.h; path = runtime/NSObjCRuntime.h; sourceTree = "<group>"; };
 		83F4B52715E843B100E0926F /* NSObject.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = NSObject.h; path = runtime/NSObject.h; sourceTree = "<group>"; };
 		83F550DF155E030800E95D3B /* objc-cache-old.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "objc-cache-old.mm"; path = "runtime/objc-cache-old.mm"; sourceTree = "<group>"; };
+		846B078021D464930098437A /* Father.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Father.h; sourceTree = "<group>"; };
+		846B078121D464930098437A /* Father.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Father.m; sourceTree = "<group>"; };
+		846B078321D464A30098437A /* Son.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Son.h; sourceTree = "<group>"; };
+		846B078421D464A30098437A /* Son.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = Son.m; sourceTree = "<group>"; };
 		87BB4E900EC39633005D08E1 /* objc-probes.d */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.dtrace; name = "objc-probes.d"; path = "runtime/objc-probes.d"; sourceTree = "<group>"; };
 		9672F7ED14D5F488007CEC96 /* NSObject.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = NSObject.mm; path = runtime/NSObject.mm; sourceTree = "<group>"; };
 		BC8B5D1212D3D48100C78A5B /* libauto.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = libauto.dylib; path = /usr/lib/libauto.dylib; sourceTree = "<absolute>"; };
@@ -340,6 +346,10 @@
 				7207966C2178288E0052439A /* main.m */,
 				72079673217828D80052439A /* TestObject.h */,
 				72079674217828D80052439A /* TestObject.m */,
+				846B078021D464930098437A /* Father.h */,
+				846B078121D464930098437A /* Father.m */,
+				846B078321D464A30098437A /* Son.h */,
+				846B078421D464A30098437A /* Son.m */,
 			);
 			path = "objc-debug";
 			sourceTree = "<group>";
@@ -540,6 +550,7 @@
 				Japanese,
 				French,
 				German,
+				Base,
 			);
 			mainGroup = 08FB7794FE84155DC02AAC07 /* objc */;
 			projectDirPath = "";
@@ -589,7 +600,9 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				846B078521D464A30098437A /* Son.m in Sources */,
 				72079675217828D80052439A /* TestObject.m in Sources */,
+				846B078221D464930098437A /* Father.m in Sources */,
 				7207966D2178288E0052439A /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -670,6 +683,7 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ARCHS = "$(ARCHS_STANDARD)";
+				COMPILER_INDEX_STORE_ENABLE = NO;
 				COPY_HEADERS_RUN_UNIFDEF = YES;
 				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILD_FOR_OSX";
 				"COPY_HEADERS_UNIFDEF_FLAGS[sdk=macosx*]" = "-DBUILD_FOR_OSX";
@@ -743,6 +757,7 @@
 		1DEB914C08733D8E0010E9CD /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMPILER_INDEX_STORE_ENABLE = NO;
 				COPY_HEADERS_RUN_UNIFDEF = YES;
 				COPY_HEADERS_UNIFDEF_FLAGS = "-UBUILD_FOR_OSX";
 				"COPY_HEADERS_UNIFDEF_FLAGS[sdk=macosx*]" = "-DBUILD_FOR_OSX";
@@ -931,6 +946,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
+				COMPILER_INDEX_STORE_ENABLE = NO;
 				COPY_PHASE_STRIP = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
 				ENABLE_TESTABILITY = YES;
@@ -987,6 +1003,7 @@
 				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
 				CODE_SIGN_IDENTITY = "-";
 				CODE_SIGN_STYLE = Automatic;
+				COMPILER_INDEX_STORE_ENABLE = NO;
 				COPY_PHASE_STRIP = NO;
 				ENABLE_NS_ASSERTIONS = NO;
 				ENABLE_STRICT_OBJC_MSGSEND = YES;
@@ -1007,6 +1024,7 @@
 		837F67AA1A771F63004D34FA /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMPILER_INDEX_STORE_ENABLE = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -1014,6 +1032,7 @@
 		837F67AB1A771F63004D34FA /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				COMPILER_INDEX_STORE_ENABLE = NO;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;

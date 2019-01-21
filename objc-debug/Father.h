@@ -1,17 +1,15 @@
 //
-//  TestObject.h
+//  Father.h
 //  objc-debug
 //
-//  Created by Tianya-quan on 2018/10/18.
+//  Created by admin on 2018/12/27.
 //
 
 #import <Foundation/Foundation.h>
 
 NS_ASSUME_NONNULL_BEGIN
 
-@interface TestObject : NSObject
-
-- (void)testWeak;
+@interface Father : NSObject
 
 @end
 
