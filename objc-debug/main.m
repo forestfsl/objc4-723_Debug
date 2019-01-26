@@ -44,15 +44,15 @@ int main(int argc, const char * argv[]) {
 //        NSString *a = @"a";
 //        NSString *b = [[a mutableCopy] copy];
 //        NSLog(@"%p %p %@", a, b, object_getClass(b));
-    
-//        NSMutableString *mutable = [NSMutableString string];
-//        NSString *immutable;
-//        char c = 'a';
-//        do {
-//            [mutable appendFormat: @"%c", c++];
-//            immutable = [mutable copy];
-//           NSLog(@"0x%016lx %@ %@", immutable, immutable, object_getClass(immutable));
-//        } while(((uintptr_t)immutable & 1) == 1);
+//    
+        NSMutableString *mutable = [NSMutableString string];
+        NSString *immutable;
+        char c = 'a';
+        do {
+            [mutable appendFormat: @"%c", c++];
+            immutable = [mutable copy];
+           NSLog(@"0x%016lx %@ %@", immutable, immutable, object_getClass(immutable));
+        } while(((uintptr_t)immutable & 1) == 1);
         
         Son *sonObject = [[Son alloc]init];
         sonObject.name = @"测试resizeClass方法";
