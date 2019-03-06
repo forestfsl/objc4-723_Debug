@@ -662,7 +662,7 @@ static void _class_resolveInstanceMethod(Class cls, SEL sel, id inst)
     }
 }
 
-
+//动态解析，函数内部可以看到根据类对象或元类对象做不同的操作
 /***********************************************************************
 * _class_resolveMethod
 * Call +resolveClassMethod or +resolveInstanceMethod.
@@ -673,11 +673,13 @@ void _class_resolveMethod(Class cls, SEL sel, id inst)
 {
     if (! cls->isMetaClass()) {
         // try [cls resolveInstanceMethod:sel]
+//        动态解析对象方法时，会调用+(BOOL)resolveInstanceMethod:(SEL)sel方法。
         _class_resolveInstanceMethod(cls, sel, inst);
     } 
     else {
         // try [nonMetaClass resolveClassMethod:sel]
         // and [cls resolveInstanceMethod:sel]
+//        动态解析类方法时，会调用+(BOOL)resolveClassMethod:(SEL)sel方法。
         _class_resolveClassMethod(cls, sel, inst);
         if (!lookUpImpOrNil(cls, sel, inst, 
                             NO/*initialize*/, YES/*cache*/, NO/*resolver*/)) 

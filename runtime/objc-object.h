@@ -169,7 +169,7 @@ objc_object::hasNonpointerIsa()
     return isa.nonpointer;
 }
 
-
+//初始化Isa指针方法一
 inline void 
 objc_object::initIsa(Class cls)
 {
@@ -192,6 +192,7 @@ objc_object::initProtocolIsa(Class cls)
     return initClassIsa(cls);
 }
 
+//初始化Isa指针方法二
 inline void 
 objc_object::initInstanceIsa(Class cls, bool hasCxxDtor)
 {
@@ -200,12 +201,13 @@ objc_object::initInstanceIsa(Class cls, bool hasCxxDtor)
 
     initIsa(cls, true, hasCxxDtor);
 }
-
+    
+//源码中可以看出，最终都是调用了initIsa函数，只不过入参不同
 inline void 
 objc_object::initIsa(Class cls, bool nonpointer, bool hasCxxDtor) 
 { 
     assert(!isTaggedPointer()); 
-    
+    //初始化的过程就是对isa_t结构体初始化的过程
     if (!nonpointer) {
         isa.cls = cls;
     } else {

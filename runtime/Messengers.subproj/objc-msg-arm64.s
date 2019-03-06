@@ -176,7 +176,7 @@ LExit$0:
 #define NoFrame 0x02000000  // no frame, no SP adjustment
 #define FrameWithNoSaves 0x04000000  // frame, no non-volatile saves
 
-
+//对缓存方法进行查找
 /********************************************************************
  *
  * CacheLookup NORMAL|GETIMP|LOOKUP
@@ -219,7 +219,7 @@ LExit$0:
 .if $0 == GETIMP
 	cbz	x9, LGetImpMiss
 .elseif $0 == NORMAL
-	cbz	x9, __objc_msgSend_uncached
+	cbz	x9, __objc_msgSend_uncached //478行
 .elseif $0 == LOOKUP
 	cbz	x9, __objc_msgLookup_uncached
 .else
@@ -239,6 +239,10 @@ LExit$0:
 .endif
 .endmacro
 
+/*如果消息接受者不为nil，则会进入到这个方法，这个方法的内部对方法缓存列表进行查找，如果找到则CacheHit
+进而调用方法，否则执行CheckMiss,CheckMiss 内部调用_objc_msgSend_uncached,257行的CheckMiss $0
+ 调用217行的。.macro CheckMiss $0 是NORMAL
+ */
 .macro CacheLookup
 	// x1 = SEL, x16 = isa
 	ldp	x10, x11, [x16, #CACHE]	// x10 = buckets, x11 = occupied|mask
@@ -280,7 +284,7 @@ LExit$0:
 	
 .endmacro
 
-
+//_objc_msgSend 内部实现
 /********************************************************************
  *
  * id objc_msgSend(id self, SEL _cmd, ...);
@@ -300,7 +304,7 @@ _objc_debug_taggedpointer_classes:
 	.globl _objc_debug_taggedpointer_ext_classes
 _objc_debug_taggedpointer_ext_classes:
 	.fill 256, 8, 0
-
+//进入_objc_msgSend函数
 	ENTRY _objc_msgSend
 	UNWIND _objc_msgSend, NoFrame
 	MESSENGER_START
@@ -308,10 +312,11 @@ _objc_debug_taggedpointer_ext_classes:
 	cmp	x0, #0			// nil check and tagged pointer check
 	b.le	LNilOrTagged		//  (MSB tagged pointer looks negative)
 	ldr	x13, [x0]		// x13 = isa
-	and	x16, x13, #ISA_MASK	// x16 = class	
+	and	x16, x13, #ISA_MASK	// x16 = class
+//如果传入的消息接受者不为nil，则执行CacheLookup
 LGetIsaDone:
 	CacheLookup NORMAL		// calls imp or objc_msgSend_uncached
-
+//检查传入的消息接受者是否为nil，如果是nil就直接LReturnZero，而LReturnZero内部则直接return0
 LNilOrTagged:
 	b.eq	LReturnZero		// nil check
 
@@ -428,7 +433,7 @@ LLookup_Nil:
 
 	END_ENTRY _objc_msgLookupSuper2
 
-
+//方法列表查找，内部核心代码是__class_lookupMethodAndLoadCache3也就是c语言函数_class_lookupMethodAndLoadCache3 源码位于objc-runtime-new.mm4578行
 .macro MethodTableLookup
 	
 	// push frame
@@ -470,12 +475,13 @@ LLookup_Nil:
 
 .endmacro
 
+//如果方法没有缓存命中的话，会来到这个方法
 	STATIC_ENTRY __objc_msgSend_uncached
 	UNWIND __objc_msgSend_uncached, FrameWithNoSaves
 
 	// THIS IS NOT A CALLABLE C FUNCTION
 	// Out-of-band x16 is the class to search
-	
+	//方法列表查找436行
 	MethodTableLookup
 	br	x17
 

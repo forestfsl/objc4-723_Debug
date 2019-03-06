@@ -1194,7 +1194,7 @@ LCacheMiss:
 *   method caches.
 *
 ********************************************************************/
-
+//__objc_msgForward_impcache函数中调用__objc_msgForward1209行进而找到__objc_forward_handler1217行
 	STATIC_ENTRY __objc_msgForward_impcache
 	// Method cache version
 
@@ -1213,7 +1213,7 @@ LCacheMiss:
 	
 	ENTRY __objc_msgForward
 	// Non-stret version
-
+//调到C++方法，源码位于objc-runtime.mm 463 -- 456行，其实消息转发机制是不开源的，但是我们可以猜测其中可能拿返回的对象调用了objc_msgSend，重走了一遍消息发送，动态解析，消息转发的过程。最终找到方法进行调用
 	movq	__objc_forward_handler(%rip), %r11
 	jmp	*%r11
 

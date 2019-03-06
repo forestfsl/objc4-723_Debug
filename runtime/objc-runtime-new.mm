@@ -1565,15 +1565,17 @@ static void remapProtocolRef(protocol_t **protoref)
 static void moveIvars(class_ro_t *ro, uint32_t superSize)
 {
     runtimeLock.assertWriting();
-
+//记录偏移
     uint32_t diff;
 
     assert(superSize > ro->instanceStart);
+    //偏移是父类的instanceSize减去子类的instanceStart
     diff = superSize - ro->instanceStart;
 
     if (ro->ivars) {
         // Find maximum alignment in this class's ivars
         uint32_t maxAlignment = 1;
+        
         for (const auto& ivar : *ro->ivars) {
             if (!ivar.offset) continue;  // anonymous bitfield
 
@@ -1584,13 +1586,15 @@ static void moveIvars(class_ro_t *ro, uint32_t superSize)
         // Compute a slide value that preserves that alignment
         uint32_t alignMask = maxAlignment - 1;
         diff = (diff + alignMask) & ~alignMask;
-
+//遍历子类的所有成员变量
         // Slide all of this class's ivars en masse
         for (const auto& ivar : *ro->ivars) {
             if (!ivar.offset) continue;  // anonymous bitfield
-
+            //拿到第i个成员变量，并获取原来记录的偏移量
             uint32_t oldOffset = (uint32_t)*ivar.offset;
+            //在原来的基础上加上额外的偏移量
             uint32_t newOffset = oldOffset + diff;
+            //问题？为什么ivar 的offset是一个  int32_t * 指针而不是一个int类型的变量呢？现在应该明白了吧，这样做就是为了不让偏移在编译器固定死，让runtime在运行期也能动态的修改偏移量
             *ivar.offset = newOffset;
 
             if (PrintIvars) {
@@ -1601,13 +1605,13 @@ static void moveIvars(class_ro_t *ro, uint32_t superSize)
             }
         }
     }
-
+    //最后，别忘了instanceStart和instanceSize也要加偏移
     *(uint32_t *)&ro->instanceStart += diff;
     *(uint32_t *)&ro->instanceSize += diff;
 }
 
-
-static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro_t*& ro) 
+//https://www.jianshu.com/p/3b219ab86b09
+static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro_t*& ro)
 {
     class_rw_t *rw = cls->data();
 
@@ -1681,13 +1685,13 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
             }
         }
     }
-
+    //当子类的instanceStart大于父类的instanceSize时，直接返回不需要任何调整，说明父类并没有增加任何东西
     if (ro->instanceStart >= super_ro->instanceSize) {
         // Superclass has not overgrown its space. We're done here.
         return;
     }
     // fixme can optimize for "class has no new ivars", etc
-
+ // 当子类的instanceStart小于父类的instanceSize时,说明需要调整
     if (ro->instanceStart < super_ro->instanceSize) {
         // Superclass has changed size. This class's ivars must move.
         // Also slide layout bits in parallel.
@@ -1699,14 +1703,22 @@ static void reconcileInstanceVariables(Class cls, Class supercls, const class_ro
                          cls->nameForLogging(), ro->instanceStart, 
                          super_ro->instanceSize);
         }
+        //让只读区域变成可写
         class_ro_t *ro_w = make_ro_writeable(rw);
         ro = rw->ro;
+        //调整成员变量
         moveIvars(ro_w, super_ro->instanceSize);
+         // layoutsChanged标识布局改变了,ivarLayout需要改变
         gdb_objc_class_changed(cls, OBJC_CLASS_IVARS_CHANGED, ro->name);
     } 
 }
 
-
+/*在运行时调用realizeClass，会做以下3件事情
+ 1.从class_data_bits_t 调用data方法，将结果从class_rw_t强制转换为class_ro_t指针
+ 2.初始化一个class_rw_t结构体
+ 3.设置结构体的ro值以及flag
+ 最后调用methodSizeClass方法，把类里面的属性，协议，方法都加载进来
+*/
 /***********************************************************************
 * realizeClass
 * Performs first-time initialization on class cls, 
@@ -1825,7 +1837,7 @@ static Class realizeClass(Class cls)
     } else {
         addRootClass(cls);
     }
-
+//调用methodizeClass方法，把类里面的属性，协议，方法都加载进来。
     // Attach categories
     methodizeClass(cls);
 
@@ -4388,7 +4400,7 @@ class_setVersion(Class cls, int version)
     cls->data()->version = version;
 }
 
-
+//findMethodInSortedMethodList函数内二分查找实现原理
 static method_t *findMethodInSortedMethodList(SEL key, const method_list_t *list)
 {
     assert(list);
@@ -4398,22 +4410,26 @@ static method_t *findMethodInSortedMethodList(SEL key, const method_list_t *list
     const method_t *probe;
     uintptr_t keyValue = (uintptr_t)key;
     uint32_t count;
-    
+    //>> 1表示将变量n的各个二进制位顺序右移动1位，最高位补二进制0
+    //count >>= 1 如果count为偶数则值变为(count /2)，如果count为奇数则值变为(count-1) / 2
     for (count = list->count; count != 0; count >>= 1) {
+        //probe 指向数组中间的值
         probe = base + (count >> 1);
-        
+        //取出中间method_t的name，也就是SEL
         uintptr_t probeValue = (uintptr_t)probe->name;
         
         if (keyValue == probeValue) {
             // `probe` is a match.
             // Rewind looking for the *first* occurrence of this value.
             // This is required for correct category overrides.
+            //取出probe
             while (probe > first && keyValue == (uintptr_t)probe[-1].name) {
                 probe--;
             }
+            //返回方法
             return (method_t *)probe;
         }
-        
+        //如果keyValue > probeValue则折半向后查询
         if (keyValue > probeValue) {
             base = probe + 1;
             count--;
@@ -4432,11 +4448,14 @@ static method_t *search_method_list(const method_list_t *mlist, SEL sel)
 {
     int methodListIsFixedUp = mlist->isFixedUp();
     int methodListHasExpectedSize = mlist->entsize() == sizeof(method_t);
-    
+//    __builtin_expect(!!(x), 1) //x很可能为真，__builtin_expect 只要是提高编译器性能
+    //这个方法如果是列表有序的，就使用二分法查找方法，节省时间
     if (__builtin_expect(methodListIsFixedUp && methodListHasExpectedSize, 1)) {
+        //4399行
         return findMethodInSortedMethodList(sel, mlist);
     } else {
         // Linear search of unsorted method list
+        //否则则遍历列表查询
         for (auto& meth : *mlist) {
             if (meth.name == sel) return &meth;
         }
@@ -4464,12 +4483,14 @@ getMethodNoSuper_nolock(Class cls, SEL sel)
     assert(cls->isRealized());
     // fixme nil cls? 
     // fixme nil sel?
-
+    //class->data()得到的是一个class_rw_t 的结构体
+    //class_rw_t->methods 得到的是methods二维数组
     for (auto mlists = cls->data()->methods.beginLists(), 
               end = cls->data()->methods.endLists(); 
          mlists != end;
          ++mlists)
     {
+        //mlists 为method_list_t,然后通过search_method_list函数查找方法 4438行
         method_t *m = search_method_list(*mlists, sel);
         if (m) return m;
     }
@@ -4590,11 +4611,13 @@ IMP _class_lookupMethodAndLoadCache3(id obj, SEL sel, Class cls)
 IMP lookUpImpOrForward(Class cls, SEL sel, id inst, 
                        bool initialize, bool cache, bool resolver)
 {
+      // initialize = YES , cache = NO , resolver = YES
     IMP imp = nil;
     bool triedResolver = NO;
 
     runtimeLock.assertUnlocked();
 
+    //缓存查找，因为cache传入的为NO，这里不会进行缓存查找，因为在汇编语言中CacheLookup已经查找过
     // Optimistic cache lookup
     if (cache) {
         imp = cache_getImp(cls, sel);
@@ -4640,23 +4663,27 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
     runtimeLock.assertReading();
 
     // Try this class's cache.
-
+//经过前面的初始化之后，有可能动态添加了方法，于是我们应该再次查找缓存，如果找到，直接调用done，返回方法地址
     imp = cache_getImp(cls, sel);
     if (imp) goto done;
-
+//如果没有找到的话，查找方法列表，传入类对象和方法名
     // Try this class's method lists.
     {
+        //根据sel去类对象里面查找方法，该方法源码位于4467行
         Method meth = getMethodNoSuper_nolock(cls, sel);
         if (meth) {
+            //如果方法存在，则缓存方法，这个方法内部调用的是cache_fill
             log_and_fill_cache(cls, meth->imp, sel, inst, cls);
+            //方法缓存之后，取出imp,调用done返回imp
             imp = meth->imp;
             goto done;
         }
     }
-
+//如果类方法列表中没有找到，则去父类的缓存中或方法列表中查找方法
     // Try superclass caches and method lists.
     {
         unsigned attempts = unreasonableClassCount();
+         // 如果父类缓存列表及方法列表均找不到方法，则去父类的父类去查找。
         for (Class curClass = cls->superclass;
              curClass != nil;
              curClass = curClass->superclass)
@@ -4665,26 +4692,30 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
             if (--attempts == 0) {
                 _objc_fatal("Memory corruption in class list.");
             }
-            
+          //查找父类的缓存
             // Superclass cache.
             imp = cache_getImp(curClass, sel);
             if (imp) {
                 if (imp != (IMP)_objc_msgForward_impcache) {
                     // Found the method in a superclass. Cache it in this class.
+                    //在父类中找到方法，在本类中缓存方法，注意这里传入的是cls，将方法缓存在本类列表中，而非父类中
                     log_and_fill_cache(cls, imp, sel, inst, curClass);
+                    //执行done，返回imp
                     goto done;
                 }
                 else {
                     // Found a forward:: entry in a superclass.
                     // Stop searching, but don't cache yet; call method 
                     // resolver for this class first.
+                    //跳出循环，停止搜索
                     break;
                 }
             }
-            
+         //查找父类的方法列表
             // Superclass method list.
             Method meth = getMethodNoSuper_nolock(curClass, sel);
             if (meth) {
+                //同样拿到方法，在本类进行缓存
                 log_and_fill_cache(cls, meth->imp, sel, inst, curClass);
                 imp = meth->imp;
                 goto done;
@@ -4692,21 +4723,29 @@ IMP lookUpImpOrForward(Class cls, SEL sel, id inst,
         }
     }
 
+    //----------------------消息发送阶段完成，那如果消息找不到实现方法的话，那怎么办呢，这个时候会进入动态解析阶段//
+    //----------------------进入动态解析阶段-----------------------//
     // No implementation found. Try method resolver once.
-
+    //上面的列表方法中如果没有找到方法实现，则尝试解析方法
     if (resolver  &&  !triedResolver) {
         runtimeLock.unlockRead();
+        //动态解析 源码位于objc-class 672
         _class_resolveMethod(cls, sel, inst);
         runtimeLock.read();
         // Don't cache the result; we don't hold the lock so it may have 
         // changed already. Re-do the search from scratch instead.
+        //动态解析之后将这个变量设置为YES，那么下次就不会在进行动态解析了，之后会重新执行retry，会重新对方法查找一遍，
+//        也就是说无论我们是否实现动态解析方法，无论动态解析方法是否成功，retry之后都不会再进行动态的解析方法了，为什么需要goto retry，是因为动态添加方法可能成功了，方法中可以d找到实现的方法，进而返回imp对方法进行调用，如果没有实现的话，那么就会进入消息转发
         triedResolver = YES;
         goto retry;
     }
-
+//---------------------------动态解析完毕-------------------------//
+    
+    
     // No implementation found, and method resolver didn't help. 
     // Use forwarding.
-
+//--------------------------进入消息转发阶段--------------------//
+    //源码位于objc-msg-x86_64.s 1198
     imp = (IMP)_objc_msgForward_impcache;
     cache_fill(cls, sel, imp, inst);
 
@@ -6141,7 +6180,7 @@ objc_constructInstance(Class cls, void *bytes)
 * fixme
 * Locking: none
 **********************************************************************/
-
+//alloc 对象的终极方法实现
 static __attribute__((always_inline)) 
 id
 _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone, 
@@ -6154,17 +6193,22 @@ _class_createInstanceFromZone(Class cls, size_t extraBytes, void *zone,
     assert(cls->isRealized());
 
     // Read class's info bits all at once for performance
+    //ctor是判断当前class或者superclass是否有.cxx_construct构造方法的实现
     bool hasCxxCtor = cls->hasCxxCtor();
+    //dtor 是判断当前class或者superclass是否有.cxx_destruct构造方法的实现
     bool hasCxxDtor = cls->hasCxxDtor();
     bool fast = cls->canAllocNonpointer();
 
+    //实例大小instanceSize会存储在类的isa_t结构体中，然后经过对齐最后返回，Core Foundation 需要所有的对象的大小都必须大于或等于 16 字节这是内存对齐原则，
     size_t size = cls->instanceSize(extraBytes);
     if (outAllocatedSize) *outAllocatedSize = size;
 
     id obj;
+//    在获取对象大小之后，直接调用calloc函数就可以为对象分配内存空间了
     if (!zone  &&  fast) {
         obj = (id)calloc(1, size);
         if (!obj) return nil;
+        //分配完内存之后，需要初始化Isa指针
         obj->initInstanceIsa(cls, hasCxxDtor);
     } 
     else {

@@ -100,7 +100,7 @@
 /***********************************************************************
 * Weak ivar support
 **********************************************************************/
-
+//创建对象失败后，最终会调用_objc_fatal输出"attempt to allocate object of class failed"创建对象失败
 static id defaultBadAllocHandler(Class cls)
 {
     _objc_fatal("attempt to allocate object of class '%s' failed", 
@@ -108,6 +108,7 @@ static id defaultBadAllocHandler(Class cls)
 }
 
 static id(*badAllocHandler)(Class) = &defaultBadAllocHandler;
+
 
 static id callBadAllocHandler(Class cls)
 {
@@ -1760,9 +1761,11 @@ _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone)
 
 #if __OBJC2__
     // allocWithZone under __OBJC2__ ignores the zone parameter
+//    在__OBJC2__中，直接调用class_createInstance(cls, 0);方法去创建对象
     (void)zone;
     obj = class_createInstance(cls, 0);
 #else
+    //在objc的老版本中药先看看zone是否有空间，是否用了垃圾回收，如果没有空间，或者用了垃圾回收，就会调用class_createInstance(cls, 0)方法获取对象，否则调用class_createInstanceFromZone(cls, 0, zone);获取对象
     if (!zone) {
         obj = class_createInstance(cls, 0);
     }
@@ -1775,24 +1778,37 @@ _objc_rootAllocWithZone(Class cls, malloc_zone_t *zone)
     return obj;
 }
 
+//总结，可以看到创建对象，最终调用的函数都是_class_createInstanceFromZone,不管objc的版本是新版还是旧版
+//如果创建成果就返回objc，如果创建失败，就会调用callBadAllocHandler
 
 // Call [cls alloc] or [cls allocWithZone:nil], with appropriate 
 // shortcutting optimizations.
+
+//_objc_rootAlloc 传递过来的参数false/*checkNil*/, true/*allocWithZone*/
 static ALWAYS_INLINE id
 callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
 {
+//    在苹果定义的两个宏中，fastpath(x) 依然返回 x，只是告诉编译器 x 的值一般不为 0，从而编译器可以进行优化。同理，slowpath(x) 表示 x 的值很可能为 0，希望编译器进行优化。
+    //由于入参checkNil = false，所以不会返回nil
     if (slowpath(checkNil && !cls)) return nil;
 
 #if __OBJC2__
+    //hasDefaultAWZ()方法用来判断当前class是否有默认的allocWithZone，如果cls->ISA()->hasCustomAWZ()返回YES，意味着有默认的allocWithZone方法，那么就直接对class进行allocWithZone，申请内存空间，这个时候执行的是allocWithZone:的方法创建对象
     if (fastpath(!cls->ISA()->hasCustomAWZ())) {
         // No alloc/allocWithZone implementation. Go straight to the allocator.
         // fixme store hasCustomAWZ in the non-meta class and 
         // add it to canAllocFast's summary
+        
+        //如果hasCustomAWZ()返回NO的情况，就会进来这里面执行，返回NO，对应的是当前class没有默认的allocWithZone的情况
+        //在没有默认的allocWithZone的情况下，还需要再次判断当前的class是否支持alloc，如果可以直接调用calloc函数，申请1块bits.fastInstanceSize()大小的内存空间，如果创建失败，也会调用callBadAllocHandler函数
         if (fastpath(cls->canAllocFast())) {
             // No ctors, raw isa, etc. Go straight to the metal.
+            //dtor是用来判断当前class或者superclass是否有.cxx_destruct函数的实现，如果当前的class不支持快速alloc
+//            那么就会去调用class_createInstance(cls,0),方法创建一个新的实例对象
             bool dtor = cls->hasCxxDtor();
             id obj = (id)calloc(1, cls->bits.fastInstanceSize());
             if (slowpath(!obj)) return callBadAllocHandler(cls);
+            //如果创建成果，就去初始化isa指针和dtor
             obj->initInstanceIsa(cls, dtor);
             return obj;
         }
@@ -1813,6 +1829,7 @@ callAlloc(Class cls, bool checkNil, bool allocWithZone=false)
 
 // Base class implementation of +alloc. cls is not nil.
 // Calls [cls allocWithZone:nil].
+//所有对象alloc都会调用这个root方法
 id
 _objc_rootAlloc(Class cls)
 {
@@ -1850,6 +1867,7 @@ _objc_rootFinalize(id obj __unused)
 }
 
 
+//返回当前对象
 id
 _objc_rootInit(id obj)
 {
@@ -2048,6 +2066,7 @@ void arr_init(void)
     return [self class]->superclass;
 }
 
+//isMemberOfClass的源码实现是拿到自己的isa指针和自己比较，是否相等。
 + (BOOL)isMemberOfClass:(Class)cls {
     return object_getClass((id)self) == cls;
 }
@@ -2056,6 +2075,33 @@ void arr_init(void)
     return [self class] == cls;
 }
 
+/*
+ *@autoreleasepool {
+ //##########################################################################################
+ BOOL res1 = [(id)[NSObject class] isKindOfClass:[NSObject class]];
+ [NSObject class]执行完之后调用isKindOfClass，第一次判断先判断NSObject 和 NSObject的meta class是否相等，之前讲到meta class的时候放了一张很详细的图，从图上我们也可以看出，NSObject的meta class与本身不等。接着第二次循环判断NSObject与meta class的superclass是否相等。还是从那张图上面我们可以看到：Root class(meta) 的superclass 就是 Root class(class)，也就是NSObject本身。所以第二次循环相等，于是第一行res1输出应该为YES
+ //##########################################################################################
+ BOOL res2 = [(id)[NSObject class] isMemberOfClass:[NSObject class]];
+ 第二行isa 指向 NSObject 的 Meta Class，所以和 NSObject Class不相等
+ 
+//##########################################################################################
+ BOOL res3 = [(id)[Sark class] isKindOfClass:[Sark class]];
+  同理，[Sark class]执行完之后调用isKindOfClass，第一次for循环，Sark的Meta Class与[Sark class]不等，第二次for循环，Sark Meta Class的super class 指向的是 NSObject Meta Class， 和 Sark Class不相等。第三次for循环，NSObject Meta Class的super class指向的是NSObject Class，和 Sark Class 不相等。第四次循环，NSObject Class 的super class 指向 nil， 和 Sark Class不相等。第四次循环之后，退出循环，所以第三行的res3输出为NO
+//##########################################################################################
+ BOOL res4 = [(id)[Sark class] isMemberOfClass:[Sark class]];
+ 四行，isa指向Sark的Meta Class，和Sark Class也不等
+//##########################################################################################
+ BOOL res5 = [sark isMemberOfClass:[Sark class]];
+ sark isKindOfClass:[Sark class]，那么此时就应该输出YES了。因为在isKindOfClass函
+ NSLog(@"%d %d %d %d %d", res1, res2, res3, res4,res5); //结果是1，0，0，0，1
+ 
+ }
+ return 0;
+ }
+ */
+ 
+
+//方法内部，会先去获得object_getClass的类，而object_getClass的源码实现是去调用当前类的obj->getIsa(),最后在ISA()方法中获得meta class的指针，接着在isKindOfClass中有一个循环，先判断class是否等于meta class，不等于就继续循环判断是否等于super class，不等再继续取super class，如此循环下去
 + (BOOL)isKindOfClass:(Class)cls {
     for (Class tcls = object_getClass((id)self); tcls; tcls = tcls->superclass) {
         if (tcls == cls) return YES;
@@ -2356,6 +2402,7 @@ void arr_init(void)
     return (id)self;
 }
 
+//alloc分配完内存之后，会调用这个初始化方法，初始化里面可以看到调用_objc_rootInit(self);
 - (id)init {
     return _objc_rootInit(self);
 }

@@ -452,7 +452,8 @@ void *_objc_forward_stret_handler = nil;
 #else
 
 // Default forward handler halts the process.
-__attribute__((noreturn)) void 
+//这仅仅是一个错误信息的输出
+__attribute__((noreturn)) void
 objc_defaultForwardHandler(id self, SEL sel)
 {
     _objc_fatal("%c[%s %s]: unrecognized selector sent to instance %p "

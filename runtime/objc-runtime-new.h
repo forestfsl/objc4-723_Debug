@@ -37,7 +37,7 @@ struct swift_class_t;
 struct bucket_t {
 private:
     cache_key_t _key;
-    IMP _imp;
+    IMP _imp;//函数指针，指向一个方法的具体实现
 
 public:
     inline cache_key_t key() const { return _key; }
@@ -48,11 +48,11 @@ public:
     void set(cache_key_t newKey, IMP newImp);
 };
 
-
+//根据源码，我们可以知道cache_t中存储了一个bucket_t的结构体，和两个uint32_t 的变量，方法缓存的主要作用是为了优化方法调用的性能，当对象receiver调用message时候，首先根据对象的receiver的isa指针查找到对应的类，然后在类的methodLists中搜索方法，如果没有找到，就是用super_class指针到父类中的mthodList查找，一旦找到就调用方法，如果没有找到就可能进行消息转发，也可能忽略，但是这样的查找效率实在太低，因为往往一个类大概只有20%的方法被经常调用，占总调用次数的80%，所以用Cache来缓存经常调用的方法，当调用的方法时，优先在Cahce查找，如果没有找到，再到Methodlist中查找
 struct cache_t {
-    struct bucket_t *_buckets;
-    mask_t _mask;
-    mask_t _occupied;
+    struct bucket_t *_buckets; //这个结构体重存储了一个unsigned long和一个IMP，IMP是一个函数指针，指向一个方法的具体实现，换句话来说其实就是一个散列表，用用来存储method的链表
+    mask_t _mask;//分配用来缓存bucket的总数
+    mask_t _occupied;//表面目前实际占用的缓存bucket的个数
 
 public:
     struct bucket_t *buckets();
@@ -202,8 +202,8 @@ struct entsize_list_tt {
         }
     };
 };
-
-
+//深入解析Objc中方法的结构体(深入解析 ObjC 中方法的结构)
+//方法结构体，包含三个成员变量，SEL是方法d的名字name，types是Type Encoding类型编码，类型可参考Type Encoding（https://link.jianshu.com/?t=https://developer.apple.com/library/content/documentation/Cocoa/Conceptual/ObjCRuntimeGuide/Articles/ocrtTypeEncodings.html）
 struct method_t {
     SEL name;
     const char *types;
@@ -893,7 +893,7 @@ private:
     }
 
 public:
-
+    //Objc的类的属性方法，以及遵循的协议在obj2.0的版本之后都放在class_rw_t中，class_ro_t 是一个指向常量的指针，存储编译器决定了的属性，方法和遵守的协议，rw-readwrite,ro-readonly
     class_rw_t* data() {
         return (class_rw_t *)(bits & FAST_DATA_MASK);
     }
@@ -929,6 +929,7 @@ public:
         clearBits(FAST_HAS_DEFAULT_AWZ);
     }
 #else
+//    RW_HAS_DEFAULT_AWZ 这个是用来标示当前的class或者是superclass是否有默认的alloc/allocWithZone:。值得注意的是，这个值会存储在metaclass 中
     bool hasDefaultAWZ() {
         return data()->flags & RW_HAS_DEFAULT_AWZ;
     }

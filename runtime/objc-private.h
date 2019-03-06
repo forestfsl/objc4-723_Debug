@@ -87,19 +87,21 @@ union isa_t
     // uintptr_t extraBytes : 1;  // allocated with extra bytes
 
 # if __arm64__
-#   define ISA_MASK        0x0000000ffffffff8ULL
-#   define ISA_MAGIC_MASK  0x000003f000000001ULL
+#   define ISA_MASK        0x0000000ffffffff8ULL//isa类指针
+#   define ISA_MAGIC_MASK  0x000003f000000001ULL//ISA_MAGIC_MASK 和 ISA_MASK 分别是
 #   define ISA_MAGIC_VALUE 0x000001a000000001ULL
     struct {
-        uintptr_t nonpointer        : 1;
-        uintptr_t has_assoc         : 1;
-        uintptr_t has_cxx_dtor      : 1;
-        uintptr_t shiftcls          : 33; // MACH_VM_MAX_ADDRESS 0x1000000000
-        uintptr_t magic             : 6;
-        uintptr_t weakly_referenced : 1;
-        uintptr_t deallocating      : 1;
-        uintptr_t has_sidetable_rc  : 1;
-        uintptr_t extra_rc          : 19;
+        uintptr_t nonpointer        : 1; //代表是否开启isa指针优化，也就是iphone5s之后出现的苹果提出了Tagged Pointer的概念。对于64位程序，引入Tagged Pointer后，相关逻辑能减少一半的内存占用，以及3倍的访问速度提升，100倍的创建、销毁速度提升,内存优化，这个值为1就代表isa指针优化(在WWDC2013的《Session 404 Advanced in Objective-C》)在32位系统中，一个指针的大小是32位（4字节），而在64位系统中，一个指针的大小将是64位（8字节）,详细关于Tagged Pointer技术详细的，可以参考这个文章链接(https://link.jianshu.com/?t=http://www.infoq.com/cn/articles/deep-understanding-of-tagged-pointer/)
+        uintptr_t has_assoc         : 1;//对象含有或者曾经含有关联引用，没有关联引用的可以更快地释放内存
+        uintptr_t has_cxx_dtor      : 1;//表示该对象是否有 C++ 或者 Objc 的析构器
+        uintptr_t shiftcls          : 33; // MACH_VM_MAX_ADDRESS 0x1000000000  类的指针。arm64架构中有33位可以存储类指针。源码中isa.shiftcls = (uintptr_t)cls >> 3;将当前地址右移三位的主要原因是用于将 Class 指针中无用的后三位清除减小内存的消耗，因为类的指针要按照字节（8 bits）对齐内存，其指针后三位都是没有意义的 0。具体可以看从 NSObject 的初始化了解 isa这篇文章里面的shiftcls分析。(https://github.com/draveness/analyze/blob/master/contents/objc/%E4%BB%8E%20NSObject%20%E7%9A%84%E5%88%9D%E5%A7%8B%E5%8C%96%E4%BA%86%E8%A7%A3%20isa.md#shiftcls)
+        
+   
+        uintptr_t magic             : 6;//判断对象是否初始化完成，在arm64中0x16是调试器判断当前对象是真的对象还是没有初始化的空间
+        uintptr_t weakly_referenced : 1;//对象被指向或者曾经指向一个 ARC 的弱变量，没有弱引用的对象可以更快释放
+        uintptr_t deallocating      : 1;//对象是否正在释放内存
+        uintptr_t has_sidetable_rc  : 1;//判断该对象的引用计数是否过大，如果过大则需要其他散列表来进行存储
+        uintptr_t extra_rc          : 19;//存放该对象的引用计数值减一后的结果。对象的引用计数超过 1，会存在这个这个里面，如果引用计数为 10，extra_rc的值就为 9。
 #       define RC_ONE   (1ULL<<45)
 #       define RC_HALF  (1ULL<<18)
     };
