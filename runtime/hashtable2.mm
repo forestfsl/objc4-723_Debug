@@ -29,13 +29,15 @@
 #include "objc-private.h"
 #include "hashtable2.h"
 
+//这么设计的主要原因是提升性能，如果HashBucket中只有一个元素，那么久直接访问one，否则访问many，遍历这个many列表
 /* In order to improve efficiency, buckets contain a pointer to an array or directly the data when the array size is 1 */
 typedef union {
     const void	*one;
     const void	**many;
     } oneOrMany;
     /* an optimization consists of storing directly data when count = 1 */
-    
+
+
 typedef struct	{
     unsigned 	count; 
     oneOrMany	elements;
@@ -80,6 +82,7 @@ typedef struct	{
 #   define MORE_CAPACITY(b) (b*2+1)
 #endif
 
+//就是使用了NXHashTablePrototype中的isEqual来判断两个数据是否相等：
 #define ISEQUAL(table, data1, data2) ((data1 == data2) || (*table->prototype->isEqual)(table->info, data1, data2))
 	/* beware of double evaluation */
 	
@@ -137,10 +140,13 @@ NXHashTable *NXCreateHashTable (NXHashTablePrototype prototype, unsigned capacit
     return NXCreateHashTableFromZone(prototype, capacity, info, DEFAULT_ZONE);
 }
 
+//NXHashTable 使用NXCreateHashTableFromZone方法初始化，代码中可以看到在这个方法中，绝大多数代码都是用来初始化table->prototype的
 NXHashTable *NXCreateHashTableFromZone (NXHashTablePrototype prototype, unsigned capacity, const void *info, void *z) {
     NXHashTable			*table;
+    
     NXHashTablePrototype	*proto;
     
+    //ALLOCATABLE 调用了malloc_zone_calloc来初始化相应的结构体
     table = ALLOCTABLE(z);
     if (! prototypes) bootstrap ();
     if (! prototype.hash) prototype.hash = NXPtrHash;
@@ -163,7 +169,29 @@ NXHashTable *NXCreateHashTableFromZone (NXHashTablePrototype prototype, unsigned
 	    };
 	};
     table->prototype = proto; table->count = 0; table->info = info;
+    /*
+     GOOD_CAPACITY这个比较特殊，需要详细说明一下
+     static inline T log2u(T x) {
+     return (x<2) ? 0 : log2u(x>>1)+1;
+     }
+     
+     static T exp2m1u(T x) {
+     return (1 << x) - 1;
+     }
+     
+     c   binary  result
+     1   1       1
+     2   10      3(0b11)
+     6   110     7(0b111)
+     100 1100100 127(0b111 1111)
+     c 表示传入参数，binary 表示二进制下的参数，而 result 就是 GOOD_CAPACITY 返回的结果。
+     每次返回当前位数下的二进制最大值。
+     
+     #   define GOOD_CAPACITY(c) (exp2m1u (log2u (c)+1))
+     
+     */
     table->nbBuckets = GOOD_CAPACITY(capacity);
+    //调用了 malloc_zone_calloc 来初始化相应的结构体
     table->buckets = ALLOCBUCKETS(z, table->nbBuckets);
     return table;
     }
@@ -243,19 +271,24 @@ NXHashTable *NXCopyHashTable (NXHashTable *table) {
     return newt;
     }
 
+//直接返回NXHashTable结构体中的count
 unsigned NXCountHashTable (NXHashTable *table) {
     return table->count;
     }
 
+//NSHashMember的函数签名虽然会返回int，其实它就是一个布尔值，会判断当前的NSHashTable中是否包含传入的数据
 int NXHashMember (NXHashTable *table, const void *data) {
+    //使用BUCKETOF对data进行hash，将结果与哈希表的buckets数取模，返回buckets数组中对应的NXHashBucket，因为在Insert的时候也是通过这样的方式保存存进去哈希表里面的
     HashBucket	*bucket = BUCKETOF(table, data);
     unsigned	j = bucket->count;
     const void	**pairs;
-    
-    if (! j) return 0;
+    //根据其中元素个数的不同，选择不同的分支
+    if (! j) return 0;// count == 0,直接返回
     if (j == 1) {
+        //count == 1,使用ISEqual比较查找的数据与bucket->elements.one
     	return ISEQUAL(table, data, bucket->elements.one);
 	};
+    //当count > 1,依次与bucket->elements.many
     pairs = bucket->elements.many;
     while (j--) {
 	/* we don't cache isEqual because lists are short */
@@ -291,7 +324,7 @@ unsigned _NXHashCapacity (NXHashTable *table) {
 void _NXHashRehashToCapacity (NXHashTable *table, unsigned newCapacity) {
     /* Rehash: we create a pseudo table pointing really to the old guys,
     extend self, copy the old pairs, and free the pseudo table */
-    NXHashTable	*old;
+    NXHashTable	*old;//创建一个NSHashTable的指针指向原哈希表
     NXHashState	state;
     void	*aux;
     __unused void *z = ZONE_FROM_PTR(table);
@@ -299,12 +332,12 @@ void _NXHashRehashToCapacity (NXHashTable *table, unsigned newCapacity) {
     old = ALLOCTABLE(z);
     old->prototype = table->prototype; old->count = table->count; 
     old->nbBuckets = table->nbBuckets; old->buckets = table->buckets;
-    table->nbBuckets = newCapacity;
-    table->count = 0; table->buckets = ALLOCBUCKETS(z, table->nbBuckets);
+    table->nbBuckets = newCapacity;//该表哈希表的nbBuckets,并重新初始化哈希表的buckets数组
+    table->count = 0; table->buckets = ALLOCBUCKETS(z, table->nbBuckets);//
     state = NXInitHashState (old);
     while (NXNextHashState (old, &state, &aux))
-	(void) NXHashInsert (table, aux);
-    freeBuckets (old, NO);
+	(void) NXHashInsert (table, aux);//重新将元素插入到哈希表中
+    freeBuckets (old, NO);//f释放原哈希表old以及buckets
     if (old->count != table->count)
 	_objc_inform("*** hashtable: count differs after rehashing; probably indicates a broken invariant: there are x and y such as isEqual(x, y) is TRUE but hash(x) != hash (y)\n");
     free (old->buckets); 
@@ -312,22 +345,26 @@ void _NXHashRehashToCapacity (NXHashTable *table, unsigned newCapacity) {
     }
 
 static void _NXHashRehash (NXHashTable *table) {
+//    #define MORE_CAPACITY(b) (b*2+1)
     _NXHashRehashToCapacity (table, MORE_CAPACITY(table->nbBuckets));
     }
 
+//其作用是向表中插入数据
 void *NXHashInsert (NXHashTable *table, const void *data) {
     HashBucket	*bucket = BUCKETOF(table, data);
     unsigned	j = bucket->count;
     const void	**pairs;
     const void	**newt;
     __unused void *z = ZONE_FROM_PTR(table);
-    
+    //如果对应的bucket为空，将数据直接填入，增加bucket中元素的个数，以及table中存储的元素的数目
     if (! j) {
 	bucket->count++; bucket->elements.one = data; 
 	table->count++; 
 	return NULL;
 	};
+    //如果原来的buckets中有一个元素，它会替换或者使用many替换原来的one
     if (j == 1) {
+        //只有一个元素的第一种情况，如果当然data和bucket存储的数据相同，就会更新这个数据，否则就会使用ALLOCPAIRS初始化一个数组，然后将data和原来的数据传入
     	if (ISEQUAL(table, data, bucket->elements.one)) {
 	    const void	*old = bucket->elements.one;
 	    bucket->elements.one = data;
@@ -342,6 +379,7 @@ void *NXHashInsert (NXHashTable *table, const void *data) {
 	return NULL;
 	};
     pairs = bucket->elements.many;
+    //判断插入的data是否和表中含有的数据存在相同的，如果存在，则直接替换，不会在链表的头部追加一个新的元素，否则走下面的的操作
     while (j--) {
 	/* we don't cache isEqual because lists are short */
     	if (ISEQUAL(table, data, *pairs)) {
@@ -351,13 +389,16 @@ void *NXHashInsert (NXHashTable *table, const void *data) {
 	    };
 	pairs ++;
 	};
+    //如果原来的bucket中存储的元素大于1，那么会在链表的头部追加一个新的元素
     /* we enlarge this bucket; and put new data in front */
     newt = ALLOCPAIRS(z, bucket->count+1);
+    //使用bcopy将原链表中元素拷贝到新的数组newt中，并释放之前的数据内存
     if (bucket->count) bcopy ((const char*)bucket->elements.many, (char*)(newt+1), bucket->count * PTRSIZE);
     *newt = data;
     FREEPAIRS (bucket->elements.many);
     bucket->count++; bucket->elements.many = newt; 
-    table->count++; 
+    table->count++;
+    //在每次添加完一个元素之后，都会进行下面的判断，作用是为了保证哈希表中的元素数据小于等于表中的bucket数量，这个就是buckets后面的列表非常短的原因，在理想情况下，每一个buckets中都之存储一个或者零个元素，如果在哈希表中添加元素后，其中的数据多余buckets数量，就会对NSHashTable进行_NXHashRehash操作
     if (table->count > table->nbBuckets) _NXHashRehash (table);
     return NULL;
     }
@@ -403,6 +444,7 @@ void *NXHashInsertIfAbsent (NXHashTable *table, const void *data) {
     return (void *) data;
     }
 
+//NXHashRemove 在某种意义上是NXHashInsert的逆操作
 void *NXHashRemove (NXHashTable *table, const void *data) {
     HashBucket	*bucket = BUCKETOF(table, data);
     unsigned	j = bucket->count;
@@ -456,7 +498,8 @@ NXHashState NXInitHashState (NXHashTable *table) {
     state.j = 0;
     return state;
     };
-    
+
+//每次调用NXNextHashState都会向前移动一次，如果还没有搞懂，可以打个断点看看，遍历一次之后state->J的值会变化，也就是说，是从后往前一个个遍历之前的old bucket，然后return YES 插入数据
 int NXNextHashState (NXHashTable *table, NXHashState *state, void **data) {
     HashBucket		*buckets = (HashBucket *) table->buckets;
     

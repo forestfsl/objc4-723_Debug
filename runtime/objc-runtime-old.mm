@@ -314,10 +314,12 @@ objc_copyClassList(unsigned int *outCount)
 
     mutex_locker_t lock(classLock);
     result = nil;
+    //使用NXCountHashTable返回relized_class_hash 哈希表
     count = class_hash ? NXCountHashTable(class_hash) : 0;
 
     if (count > 0) {
         Class cls;
+        //使用NSHashState遍历哈希表中的类，并将所有的记过存入result
         NXHashState state = NXInitHashState(class_hash);
         result = (Class *)malloc((1+count) * sizeof(Class));
         count = 0;

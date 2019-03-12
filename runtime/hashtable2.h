@@ -52,6 +52,9 @@ __BEGIN_DECLS
 The objective C class HashTable is preferred when dealing with (key, values) associations because it is easier to use in that situation.
 As well-behaved scalable data structures, hash tables double in size when they start becoming full, thus guaranteeing both average constant time access and linear size. */
 
+/*
+ NSHashTablePrototype 中存储了hash,isEqual 和free的函数指针，（用于获取数据的哈希，判断两个数据是否相等，以及释放数据）
+ */
 typedef struct {
     uintptr_t	(* _Nonnull hash)(const void * _Nullable info,
                                   const void * _Nullable data);
@@ -70,11 +73,11 @@ typedef struct {
 		    e.g. if data hashes over a string key, the string must not be changed
 	2- isEqual (data1, data2) => data1= data2
  */
-
+//count 存放的是哈希表元素的个数，也就是bucket桶里面元数据的个数，和bucket的总元素个数相等
 typedef struct {
     const NXHashTablePrototype	* _Nonnull prototype OBJC_HASH_AVAILABILITY;
     unsigned			count OBJC_HASH_AVAILABILITY;
-    unsigned			nbBuckets OBJC_HASH_AVAILABILITY;
+    unsigned			nbBuckets  OBJC_HASH_AVAILABILITY;
     void			* _Nullable buckets OBJC_HASH_AVAILABILITY;
     const void			* _Nullable info OBJC_HASH_AVAILABILITY;
    } NXHashTable OBJC_HASH_AVAILABILITY;

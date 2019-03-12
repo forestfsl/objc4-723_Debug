@@ -344,7 +344,7 @@ objc_object::setHasAssociatedObjects()
         ClearExclusive(&isa.bits);
         return;
     }
-    newisa.has_assoc = true;
+    newisa.has_assoc = true;//表示当前对象有关联对象
     if (!StoreExclusive(&isa.bits, oldisa.bits, newisa.bits)) goto retry;
 }
 

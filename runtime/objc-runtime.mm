@@ -622,17 +622,24 @@ void objc_setEnumerationMutationHandler(void (*handler)(id)) {
 /**********************************************************************
 * Associative Reference Support
 **********************************************************************/
+//get: return objc_getAssociatedObject(self, _cmd);
+//set: objc_setAssociatedObject(self, @selector(xxxx), categoryProperty, OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+//强烈推荐使用@selector(xxxx)作为key传入，其实也可以用静态指针static void * 类型的参数来代替的，不过这里，用cmd传入可以省略d了声明参数的代码，并且能很好地保证key的唯一性
 
+//为什么分类需要用到关联对象才可以实现为分类添加实例变量呢，应为类的实例变量的布局在编译的时候已经固定了，使用@property，已经无法向固定的布局中添加新的实例变量，这样做可能会覆盖子类的实例变量，所以我们需要使用关联对象与及两个方法来模拟构成属性的三个要素
+//方法的作用是根据key获取关联对象，方法的调用栈objc_getAssociatedObject-->_object_get_associative_reference
 id objc_getAssociatedObject(id object, const void *key) {
     return _object_get_associative_reference(object, (void *)key);
 }
 
 
+//以键值对形式添加关联对象,方法调用栈：objc_setAssociatedObjected
+//                                    _object_set_associative_refence
 void objc_setAssociatedObject(id object, const void *key, id value, objc_AssociationPolicy policy) {
     _object_set_associative_reference(object, (void *)key, value, policy);
 }
 
-
+//移除所有关联对象，调用栈：objc_removeAssociatedObjects->_object_remove_assocations,但是在此之前，有一个小插曲，为了加速移除对象的关联对象的速度，我们会通过标记为has_assoc来避免不必要的方法调用，在确认了对象和关联对象的存在之后，才会调用_object_remove_assocations 犯法移除对象上所有的关联对象
 void objc_removeAssociatedObjects(id object) 
 {
     if (object && object->hasAssociatedObjects()) {

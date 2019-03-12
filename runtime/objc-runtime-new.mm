@@ -3867,6 +3867,7 @@ objc_getClassList(Class *buffer, int bufferLen)
 * freed with free().
 * Locking: write-locks runtimeLock
 **********************************************************************/
+//可以使用objc_copyClassList 获取类的数组
 Class *
 objc_copyClassList(unsigned int *outCount)
 {
