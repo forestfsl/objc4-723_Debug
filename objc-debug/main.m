@@ -9,6 +9,7 @@
 #import "TestObject.h"
 #import <objc/runtime.h>
 #import "Son.h"
+#import "NSObject.h"
 //#import "hashtable2.h"
 
 NSString *binaryWithInteger(NSUInteger decInt){
@@ -116,9 +117,18 @@ int main(int argc, const char * argv[]) {
 //        }
  //##########################################################################################
         //测试关联对象
-        NSObject *obj = [NSObject new];
-        objc_setAssociatedObject(obj, @selector(hello), @"Hello", OBJC_ASSOCIATION_RETAIN_NONATOMIC);
+//        NSObject *obj = [NSObject new];
+//        objc_setAssociatedObject(obj, @selector(hello), @"Hello", OBJC_ASSOCIATION_RETAIN_NONATOMIC);
          //##########################################################################################
+        
+        //测试objc_autoreleasePoolPop 传入非哨兵对象，测试一下这个方法的行为
+//        NSString *s = @"fengsonglin";
+//        [s stringByAppendingString:@"-Test"];
+  //##########################################################################################
+        //测试ARC的优化方法 https://www.jianshu.com/p/2f05060fa377 
+        TestObject *testObject = [TestObject createTestObject];
+//        NSArray *array = [NSArray array];
+      
     }
     return 0;
 }

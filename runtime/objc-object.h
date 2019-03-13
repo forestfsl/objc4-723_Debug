@@ -698,6 +698,7 @@ objc_object::autorelease()
 
 
 // Base autorelease implementation, ignoring overrides.
+
 inline id 
 objc_object::rootAutorelease()
 {
@@ -1171,6 +1172,7 @@ prepareOptimizedReturn(ReturnDisposition disposition)
 {
     assert(getReturnDisposition() == ReturnAtPlus0);
 
+//    这个内建函数原型是char *__builtin_return_address(int level),作用是得到函数的返回地址，参数表示层数，如__builtin_return_address(0)表示当前函数体返回地址，传1是调用这个函数的外层函数的返回值地址，以此类推
     if (callerAcceptsOptimizedReturn(__builtin_return_address(0))) {
         if (disposition) setReturnDisposition(disposition);
         return true;

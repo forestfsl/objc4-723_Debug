@@ -15,6 +15,10 @@
 
 @implementation TestObject
 
++ (instancetype)createTestObject{
+    return [self new];
+}
+
 - (void)testWeak{
     NSObject *obj1 = [[NSObject alloc] init];
     self.testObj = obj1;

@@ -13,6 +13,8 @@ NS_ASSUME_NONNULL_BEGIN
 
 - (void)testWeak;
 
++ (instancetype)createTestObject;
+
 @end
 
 NS_ASSUME_NONNULL_END

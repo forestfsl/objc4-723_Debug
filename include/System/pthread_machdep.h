@@ -202,6 +202,7 @@
 extern "C" {
 #endif
 
+//Thread Local Storage(TLS)线程布局存储，目的很简单，将一块内存作为某个线程专有的存储，以key-value的形式进行读写，比如在非arm架构下，使用下面两个方法，在返回值身上调用objc_autoreleaseReturnValue 方法时，runtime将这个返回值object存储在TLS中，然后直接返回object（不调用autorelease）；同时，在外部接受这个返回值的objc_retainAutoreleaseReturnValue里，发现TLS中正好存储了这个对象，那么直接返回这个object不调用retain，于是乎调用方和被调用方利用TLS做中转，很有默契的免去了对返回值的内存管理
 extern void *pthread_getspecific(unsigned long);
 extern int pthread_setspecific(unsigned long, const void *);
 /* setup destructor function for static key as it is not created with pthread_key_create() */
