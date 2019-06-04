@@ -19,6 +19,11 @@
     return [self new];
 }
 
+
++ (void)load{
+    NSLog(@"测试 load方法的调用栈");
+}
+
 - (void)testWeak{
     NSObject *obj1 = [[NSObject alloc] init];
     self.testObj = obj1;

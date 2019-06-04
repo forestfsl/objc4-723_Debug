@@ -59,12 +59,13 @@ static int loadable_categories_allocated = 0;
 * Class cls has just become connected. Schedule it for +load if
 * it implements a +load method.
 **********************************************************************/
+
 void add_class_to_loadable_list(Class cls)
 {
     IMP method;
 
     loadMethodLock.assertLocked();
-
+//会从class中获取load方法
     method = cls->getLoadMethod();
     if (!method) return;  // Don't bother if cls has no +load method
     
@@ -72,15 +73,16 @@ void add_class_to_loadable_list(Class cls)
         _objc_inform("LOAD: class '%s' scheduled for +load", 
                      cls->nameForLogging());
     }
-    
+    //判断当前loadable_classes 这个数组是否已经全部被占用了：loadable_classes_used == loadable_classes_allocated
     if (loadable_classes_used == loadable_classes_allocated) {
+        //在当前数组的基础上扩大数组的大小，realloc
         loadable_classes_allocated = loadable_classes_allocated*2 + 16;
         loadable_classes = (struct loadable_class *)
             realloc(loadable_classes,
                               loadable_classes_allocated *
                               sizeof(struct loadable_class));
     }
-    
+    //把传入的class以及对应的方法加到列表中
     loadable_classes[loadable_classes_used].cls = cls;
     loadable_classes[loadable_classes_used].method = method;
     loadable_classes_used++;
@@ -93,6 +95,7 @@ void add_class_to_loadable_list(Class cls)
 * to its class. Schedule this category for +load after its parent class
 * becomes connected and has its own +load method called.
 **********************************************************************/
+//用于保存分类的列表,实现几乎与add_class_to_loadable_list 完全相同
 void add_category_to_loadable_list(Category cat)
 {
     IMP method;
@@ -181,6 +184,8 @@ void remove_category_from_loadable_list(Category cat)
 *
 * Called only by call_load_methods().
 **********************************************************************/
+// call_class_loads 会从一个待加载的类列表 loadable_classes 中寻找对应的类，然后找到 @selector(load) 的实现并执行。
+
 static void call_class_loads(void)
 {
     int i;
@@ -201,6 +206,7 @@ static void call_class_loads(void)
         if (PrintLoading) {
             _objc_inform("LOAD: +[%s load]\n", cls->nameForLogging());
         }
+        //直接拿到load方法的内存地址直接调用方法，不是通过消息发送机制调用的，和initlize不一样，initlize是通过消息机制调用的，消息发送机制通过isa指针找到对应的方法与实现，因此先找到分类方法中的实现，会优先调用分类方法中的实现，而就算分类中重写load方法，并不会优先调用分类的load方法，而不调用本类中的load方法
         (*load_method)(cls, SEL_load);
     }
     
@@ -221,16 +227,20 @@ static void call_class_loads(void)
 *
 * Called only by call_load_methods().
 **********************************************************************/
+
+//相比于类load方法的调用，分类中load方法的调用就多了一个判断
+
 static bool call_category_loads(void)
 {
     int i, shift;
     bool new_categories_added = NO;
     
     // Detach current loadable list.
+    //获取当前可以加载的分类列表
     struct loadable_category *cats = loadable_categories;
     int used = loadable_categories_used;
     int allocated = loadable_categories_allocated;
-    loadable_categories = nil;
+    loadable_categories = nil;//分类的结构体数组
     loadable_categories_allocated = 0;
     loadable_categories_used = 0;
 
@@ -242,6 +252,7 @@ static bool call_category_loads(void)
         if (!cat) continue;
 
         cls = _category_getClass(cat);
+//        如果当前类是可加载的 cls && cls->isLoadable(),就会调用分类的load方法，为什么会有这个判断，是因为要保证类的load方法执行要先于分类，如果分类的镜像在类的镜像之前加载到运行时，那load的顺序就没有办法保证正确
         if (cls  &&  cls->isLoadable()) {
             if (PrintLoading) {
                 _objc_inform("LOAD: +[%s(%s) load]\n", 
@@ -254,6 +265,7 @@ static bool call_category_loads(void)
     }
 
     // Compact detached list (order-preserving)
+//    将所有加载过的分类移除 loadable_categories 列表
     shift = 0;
     for (i = 0; i < used; i++) {
         if (cats[i].cat) {
@@ -265,6 +277,7 @@ static bool call_category_loads(void)
     used -= shift;
 
     // Copy any new +load candidates from the new list to the detached list.
+    //为 loadable_categories 重新分配内存，并重新设置它的值
     new_categories_added = (loadable_categories_used > 0);
     for (i = 0; i < loadable_categories_used; i++) {
         if (used == allocated) {
@@ -334,6 +347,12 @@ static bool call_category_loads(void)
 * Locking: loadMethodLock must be held by the caller 
 *   All other locks must not be held.
 **********************************************************************/
+
+//在将镜像加载到运行时，对load方法的准备就绪之后，执行call_load_methods,开始调用load方法：
+//调用 load 方法的过程就是“消费” loadable_classes 的过程，load_images -> call_load_methods -> call_class_loads 会从 loadable_classes 中取出对应类和方法，执行 load。
+
+
+//这个方法证明了load方法的调用顺序是类优先于分类
 void call_load_methods(void)
 {
     static bool loading = NO;
@@ -346,13 +365,15 @@ void call_load_methods(void)
     loading = YES;
 
     void *pool = objc_autoreleasePoolPush();
-
+//    通过死循环，不停调用类的+ load 方法，直到loadable_classes_used 等于0
     do {
         // 1. Repeatedly call class +loads until there aren't any more
         while (loadable_classes_used > 0) {
+            //调用类的load方法
             call_class_loads();
         }
 
+        //调用分类的方法
         // 2. Call category +loads ONCE
         more_categories = call_category_loads();
 

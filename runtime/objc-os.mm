@@ -871,7 +871,7 @@ void _objc_atfork_child()
 * Bootstrap initialization. Registers our image notifier with dyld.
 * Called by libSystem BEFORE library initialization time
 **********************************************************************/
-
+//runtime 初始化函数，在boostrap初始化的时候调用，会注册所有的image，并读取image
 void _objc_init(void)
 {
     static bool initialized = false;

@@ -766,12 +766,13 @@ static void remethodizeClass(Class cls)
     isMeta = cls->isMetaClass();
 
     // Re-methodizing: check for more categories
+    //cats 赋值，将编译好的分类对象没有合并的分类保存在cats集合中
     if ((cats = unattachedCategoriesForClass(cls, false/*not realizing*/))) {
         if (PrintConnecting) {
             _objc_inform("CLASS: attaching categories to class '%s' %s", 
                          cls->nameForLogging(), isMeta ? "(meta)" : "");
         }
-        
+        //attachCategories函数接受了类对象cls和分组数组cats，之所以传cats的原因是因为，一个类可以有多个分类，分类信息保存在categry_t结构体中，多个分类则保存在category_list
         attachCategories(cls, cats, true /*flush caches*/);        
         free(cats);
     }
@@ -2043,6 +2044,7 @@ map_images(unsigned count, const char * const paths[],
 extern bool hasLoadMethods(const headerType *mhdr);
 extern void prepare_load_methods(const headerType *mhdr);
 
+//新的镜像被加载到runtimer时，调用load_images 方法
 void
 load_images(const char *path __unused, const struct mach_header *mh)
 {
@@ -2565,6 +2567,7 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 
     // Discover categories. 
     for (EACH_HEADER) {
+        //获取分类列表，进行遍历，获取其中的方法，协议，属性等。可以看到最终都调用了remethoeizeClass(cls)函数
         category_t **catlist = 
             _getObjc2CategoryList(hi, &count);
         bool hasClassProperties = hi->info()->hasCategoryClassProperties();
@@ -2703,6 +2706,8 @@ void _read_images(header_info **hList, uint32_t hCount, int totalClasses, int un
 **********************************************************************/
 // Recursively schedule +load for cls and any un-+load-ed superclasses.
 // cls must already be connected.
+
+//add_class_to_loadable_list 方法负责将类加入 loadable_classes 集合，在调用 load_images -> load_images_nolock -> prepare_load_methods -> schedule_class_load -> add_class_to_loadable_list 的时候会将未加载的类添加到 loadable_classes 数组中：
 static void schedule_class_load(Class cls)
 {
     if (!cls) return;
@@ -2711,6 +2716,7 @@ static void schedule_class_load(Class cls)
     if (cls->data()->flags & RW_LOADED) return;
 
     // Ensure superclass-first ordering
+    //使用add_class_loadable_list(cls)将当前类假如加载列表之前，会先把父类加入待加载的列表，保证父类在子类前调用load方法,这里可以得出一个结论就是load方法的调用顺序是父类优先于子类调用
     schedule_class_load(cls->superclass);
 
     add_class_to_loadable_list(cls);
@@ -2726,14 +2732,17 @@ bool hasLoadMethods(const headerType *mhdr)
     return false;
 }
 
+//调用prepare_load_methods 对load方法的调用进行准备，将需要调用load的类添加到一个列表中去
 void prepare_load_methods(const headerType *mhdr)
 {
     size_t count, i;
 
     runtimeLock.assertWriting();
 
+    //获取所有列的列表之后，会通过remapClass获取类对应的指针，然后调用schedule_class_load 递归地安排当前类和没有调用+load父类进入列表
     classref_t *classlist = 
         _getObjc2NonlazyClassList(mhdr, &count);
+    //先加载类，再加载分类
     for (i = 0; i < count; i++) {
         schedule_class_load(remapClass(classlist[i]));
     }

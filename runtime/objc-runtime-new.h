@@ -699,10 +699,13 @@ class list_array_tt {
             // many lists -> many lists
             uint32_t oldCount = array()->count;
             uint32_t newCount = oldCount + addedCount;
+            //扩容，准备合并方法
             setArray((array_t *)realloc(array(), array_t::byteSize(newCount)));
             array()->count = newCount;
+            //移动原来的类方法到最后，然后赋值进去，array()->lists 相当于是首指针
             memmove(array()->lists + addedCount, array()->lists, 
                     oldCount * sizeof(array()->lists[0]));
+            //将分类的方法移动到前面赋值
             memcpy(array()->lists, addedLists, 
                    addedCount * sizeof(array()->lists[0]));
         }
@@ -1325,8 +1328,8 @@ struct swift_class_t : objc_class {
 
 
 struct category_t {
-    const char *name;
-    classref_t cls;
+    const char *name; //类名字
+    classref_t cls; //指针指向的是分类的主类对象的地址
     struct method_list_t *instanceMethods;
     struct method_list_t *classMethods;
     struct protocol_list_t *protocols;

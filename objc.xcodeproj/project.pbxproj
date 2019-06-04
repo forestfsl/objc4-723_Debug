@@ -21,6 +21,7 @@
 /* End PBXAggregateTarget section */
 
 /* Begin PBXBuildFile section */
+		07966F5C223B419900EC391D /* TestObject+Extension.m in Sources */ = {isa = PBXBuildFile; fileRef = 07966F5B223B419900EC391D /* TestObject+Extension.m */; };
 		393CEAC00DC69E3E000B69DE /* objc-references.mm in Sources */ = {isa = PBXBuildFile; fileRef = 393CEABF0DC69E3E000B69DE /* objc-references.mm */; };
 		393CEAC60DC69E67000B69DE /* objc-references.h in Headers */ = {isa = PBXBuildFile; fileRef = 393CEAC50DC69E67000B69DE /* objc-references.h */; };
 		39ABD72312F0B61800D1054C /* objc-weak.h in Headers */ = {isa = PBXBuildFile; fileRef = 39ABD71F12F0B61800D1054C /* objc-weak.h */; };
@@ -141,6 +142,8 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		07966F5A223B419900EC391D /* TestObject+Extension.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "TestObject+Extension.h"; sourceTree = "<group>"; };
+		07966F5B223B419900EC391D /* TestObject+Extension.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = "TestObject+Extension.m"; sourceTree = "<group>"; };
 		393CEABF0DC69E3E000B69DE /* objc-references.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; name = "objc-references.mm"; path = "runtime/objc-references.mm"; sourceTree = "<group>"; };
 		393CEAC50DC69E67000B69DE /* objc-references.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "objc-references.h"; path = "runtime/objc-references.h"; sourceTree = "<group>"; };
 		39ABD71F12F0B61800D1054C /* objc-weak.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = "objc-weak.h"; path = "runtime/objc-weak.h"; sourceTree = "<group>"; };
@@ -350,6 +353,8 @@
 				846B078121D464930098437A /* Father.m */,
 				846B078321D464A30098437A /* Son.h */,
 				846B078421D464A30098437A /* Son.m */,
+				07966F5A223B419900EC391D /* TestObject+Extension.h */,
+				07966F5B223B419900EC391D /* TestObject+Extension.m */,
 			);
 			path = "objc-debug";
 			sourceTree = "<group>";
@@ -603,6 +608,7 @@
 				846B078521D464A30098437A /* Son.m in Sources */,
 				72079675217828D80052439A /* TestObject.m in Sources */,
 				846B078221D464930098437A /* Father.m in Sources */,
+				07966F5C223B419900EC391D /* TestObject+Extension.m in Sources */,
 				7207966D2178288E0052439A /* main.m in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
